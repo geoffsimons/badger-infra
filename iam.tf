@@ -9,6 +9,18 @@ resource "aws_iam_policy" "app_deployment_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        "Effect": "Allow",
+        "Action": [
+          "iam:List*",
+          "iam:Get*",
+          "iam:AttachGroupPolicy",
+          "iam:DetachGroupPolicy",
+          "iam:TagUser",
+          "iam:UntagUser"
+        ],
+        "Resource": "*"
+      },
+      {
         # Permissions for Networking (VPC)
         Effect   = "Allow"
         Action   = ["ec2:*"]
