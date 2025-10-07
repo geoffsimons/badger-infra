@@ -1,1 +1,10 @@
+# Terraform State Files (Always ignore)
+*.tfstate
+*.tfstate.*
 .terraform/
+
+# Terraform CLI Output
+.terraform.lock.hcl
+
+# Local Secret Files
+secret.auto.tfvars
