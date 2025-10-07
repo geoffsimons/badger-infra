@@ -6,50 +6,39 @@ resource "aws_iam_policy" "app_deployment_policy" {
 
   # NOTE: This is an example. In production, you would restrict 'Resource' to specific ARNs.
   policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+    "Version": "2012-10-17",
+    "Statement": [
       {
         "Effect": "Allow",
         "Action": [
-          "iam:List*",
-          "iam:Get*",
+          // ESSENTIAL READ ACTIONS
+          "ec2:Describe*",     // Fixes EC2 errors (VPC, AZs, Subnets)
+          "rds:Describe*",     // Fixes RDS errors (Parameter Groups, Subnets)
+          "iam:Get*",          // Fixes IAM errors (Policy, Group, User)
+          "iam:List*",         // Fixes IAM errors
+
+          // FULL MANAGEMENT ACTIONS (for creating/updating resources)
+          "ec2:*",
+          "rds:*",
+          "s3:*",
+          "ecs:*",
+          "ecr:*",
+
+          // FULL IAM MANAGEMENT ACTIONS
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:DeletePolicyVersion",
           "iam:AttachGroupPolicy",
           "iam:DetachGroupPolicy",
+          "iam:UpdateGroup",
           "iam:TagUser",
-          "iam:UntagUser"
+          "iam:UntagUser",
+          "iam:PassRole"
         ],
         "Resource": "*"
-      },
-      {
-        # Permissions for Networking (VPC)
-        Effect   = "Allow"
-        Action   = ["ec2:*"]
-        Resource = "*"
-      },
-      {
-        # Permissions for Database (RDS)
-        Effect   = "Allow"
-        Action   = ["rds:*"]
-        Resource = "*"
-      },
-      {
-        # Permissions for Container Services (ECS/Fargate, ECR)
-        Effect   = "Allow"
-        Action   = ["ecs:*", "ecr:*", "iam:CreateRole", "iam:PutRolePolicy", "iam:DeleteRole", "iam:DeleteRolePolicy"]
-        Resource = "*"
-      },
-      {
-        # Permissions for Static Hosting (S3, CloudFront)
-        Effect   = "Allow"
-        Action   = ["s3:*", "cloudfront:*"]
-        Resource = "*"
-      },
-      {
-        # REQUIRED: Allows the Terraform execution role to "pass" roles to AWS services (e.g., Fargate Task Role)
-        Effect   = "Allow"
-        Action   = ["iam:PassRole"]
-        Resource = "*" # Restrict this to only roles created for the application (e.g., ECS task role)
       }
+      // You may have other statements, but this single, broad statement
+      // is often easiest for a single application stack.
     ]
   })
 }
