@@ -27,3 +27,27 @@ variable "private_subnet_cidrs" {
   type        = list(string)
   default     = ["10.0.10.0/24", "10.0.20.0/24"]
 }
+
+variable "db_name" {
+  description = "The database name for the PostgreSQL instance."
+  type        = string
+  default     = "badger_db"
+}
+
+variable "db_username" {
+  description = "Master username for the RDS instance."
+  type        = string
+  default     = "badger_db_admin"
+}
+
+variable "db_password" {
+  description = "Master password for the RDS instance. USE A SECURE VALUE!"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_instance_class" {
+  description = "The size/class of the RDS instance."
+  type        = string
+  default     = "db.t3.micro"
+}
