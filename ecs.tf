@@ -70,3 +70,90 @@ resource "aws_ecs_cluster" "app_cluster" {
     Name = "${var.app_name}-cluster"
   }
 }
+
+# -----------------------------------------------------------------------------
+# ECS Task Execution Role (For the ECS Agent)
+# -----------------------------------------------------------------------------
+resource "aws_iam_role" "ecs_exec_role" {
+  name = "${var.app_name}-ecs-exec-role"
+
+  # Trust policy allowing the ECS service principal to assume the role
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# Attach the AWS-managed policy for Task Execution (includes ECR access, CloudWatch Logs access)
+resource "aws_iam_role_policy_attachment" "ecs_exec_attach" {
+  role       = aws_iam_role.ecs_exec_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+output "ecs_task_execution_role_arn" {
+  description = "ARN of the ECS Task Execution Role."
+  value       = aws_iam_role.ecs_exec_role.arn
+}
+
+# -----------------------------------------------------------------------------
+# ECS Task Role (For the Application Code)
+# -----------------------------------------------------------------------------
+resource "aws_iam_role" "ecs_task_role" {
+  name = "${var.app_name}-ecs-task-role"
+
+  # Trust policy allowing the ECS service principal to assume the role
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+output "ecs_task_role_arn" {
+  description = "ARN of the ECS Task Role."
+  value       = aws_iam_role.ecs_task_role.arn
+}
+
+resource "aws_iam_policy" "ecs_app_policy" {
+  name        = "${var.app_name}-ecs-app-policy"
+  description = "Minimal policy for the application to run inside the container."
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      # ADD SPECIFIC APPLICATION PERMISSIONS HERE
+      # Example: If using Secrets Manager for DB password:
+      # {
+      #   Action   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
+      #   Effect   = "Allow",
+      #   Resource = "arn:aws:secretsmanager:REGION:ACCOUNT:secret:MY_DB_SECRET-*"
+      # },
+      # For now, we have a dummy and safe placeholder
+      { # TODO Remove this when we are ready to make the real policy.
+        Action   = "s3:ListAllMyBuckets",
+        Effect   = "Deny",
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_app_attach" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.ecs_app_policy.arn
+}
