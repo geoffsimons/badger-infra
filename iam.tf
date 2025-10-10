@@ -91,11 +91,11 @@ resource "aws_iam_user_group_membership" "admin_membership" {
 }
 
 # -------------------------------
-# SECRETS Access
+# SECRETS Access for ECS
 # -------------------------------
-resource "aws_iam_policy" "secrets_read_policy" {
-  name        = "${var.app_name}-ecs-secrets-read-policy"
-  description = "Allows ECS agent to retrieve secrets for the task definition."
+resource "aws_iam_policy" "ecs_exec_secrets_policy" {
+  name        = "${var.app_name}-exec-secrets-policy"
+  description = "Allows ECS agent to retrieve all necessary secrets for container launch."
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -106,17 +106,18 @@ resource "aws_iam_policy" "secrets_read_policy" {
           "secretsmanager:DescribeSecret"
         ],
         Effect   = "Allow",
-        # Ensures the policy is only valid for the specific database secret ARN
-        Resource = aws_secretsmanager_secret.db_credentials.arn
+        Resource = [
+          aws_secretsmanager_secret.db_credentials.arn,
+          aws_secretsmanager_secret.app_config.arn
+        ]
       }
     ]
   })
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_exec_secrets_attach" {
-  # Targets the Task Execution Role
   role       = aws_iam_role.ecs_exec_role.name
-  policy_arn = aws_iam_policy.secrets_read_policy.arn
+  policy_arn = aws_iam_policy.ecs_exec_secrets_policy.arn
 }
 
 resource "aws_iam_service_linked_role" "ecs" {
