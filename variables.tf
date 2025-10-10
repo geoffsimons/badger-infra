@@ -57,3 +57,34 @@ variable "db_instance_class" {
   type        = string
   default     = "db.t3.micro"
 }
+
+variable "jwt_secret" {
+  description = "Secret used to sign JWTs."
+  type        = string
+  sensitive   = true
+}
+
+variable "jwt_ttl" {
+  description = "Time to Live for JWTs."
+  type        = number
+  # Default is set to 7 days
+  default     = 604800000
+}
+
+variable "google_client_id" {
+  description = "OAuth Client Id from Google."
+  type        = string
+  sensitive   = true
+}
+
+variable "google_client_secret" {
+  description = "OAuth Client Secret for Google."
+  type        = string
+  sensitive   = true
+}
+
+variable "oauth2_redirect_uri_success" {
+  description = "Redirect URL on Oauth Success."
+  type        = string
+  default     = "http://localhost:3000/oauth2/redirect"
+}

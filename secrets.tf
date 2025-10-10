@@ -18,3 +18,21 @@ output "db_secret_arn" {
   value       = aws_secretsmanager_secret.db_credentials.arn
   sensitive   = true
 }
+
+resource "aws_secretsmanager_secret" "app_config" {
+  name        = "${var.app_name}/${var.environment}/application-config"
+  description = "Application configuration secrets for OAuth and JWT."
+}
+
+resource "aws_secretsmanager_secret_version" "app_config_version" {
+  secret_id = aws_secretsmanager_secret.app_config.id
+  secret_string = jsonencode({
+    JWT_SECRET                     = var.jwt_secret,
+    JWT_TTL                        = var.jwt_ttl,
+    GOOGLE_CLIENT_ID               = var.google_client_id,
+    GOOGLE_CLIENT_SECRET           = var.google_client_secret,
+    APP_OAUTH2_REDIRECT_URI_SUCCESS = var.oauth2_redirect_uri_success
+    # NOTE: You'll need to define variables for all of these values in your variables.tf
+    # and provide them via your .tfvars file for each environment.
+  })
+}
