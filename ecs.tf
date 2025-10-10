@@ -137,12 +137,7 @@ resource "aws_iam_policy" "ecs_app_policy" {
     Version = "2012-10-17",
     Statement = [
       # ADD SPECIFIC APPLICATION PERMISSIONS HERE
-      # Example: If using Secrets Manager for DB password:
-      # {
-      #   Action   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
-      #   Effect   = "Allow",
-      #   Resource = "arn:aws:secretsmanager:REGION:ACCOUNT:secret:MY_DB_SECRET-*"
-      # },
+      # TODO Add s3 permissions when ready to integrate s3
       # For now, we have a dummy and safe placeholder
       { # TODO Remove this when we are ready to make the real policy.
         Action   = "s3:ListAllMyBuckets",
