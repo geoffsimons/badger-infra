@@ -23,6 +23,7 @@ resource "aws_iam_policy" "app_deployment_policy" {
           "s3:*",
           "ecs:*",
           "ecr:*",
+          "acm:*",
 
           // FULL IAM MANAGEMENT ACTIONS
           "iam:CreatePolicy",
@@ -33,7 +34,28 @@ resource "aws_iam_policy" "app_deployment_policy" {
           "iam:UpdateGroup",
           "iam:TagUser",
           "iam:UntagUser",
-          "iam:PassRole"
+          "iam:PassRole",
+          "iam:CreateServiceLinkedRole",
+          "iam:AttachRolePolicy",
+
+          # Elastic Load Balancing (ALB/Target Group/Listener)
+          "elasticloadbalancing:*" ,
+
+          # CloudWatch Logs (For creating and managing log groups)
+          "logs:CreateLogGroup",
+          "logs:DeleteLogGroup",
+          "logs:PutRetentionPolicy",
+          "logs:DescribeLogGroups",
+          "logs:ListTagsForResource",
+
+          # Secrets Manager (For creating/managing the secret itself)
+          "secretsmanager:CreateSecret",
+          "secretsmanager:DeleteSecret",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:GetResourcePolicy",
+          "secretsmanager:GetSecretValue"
         ],
         "Resource": "*"
       }
@@ -66,4 +88,38 @@ resource "aws_iam_user" "permanent_admin_user" {
 resource "aws_iam_user_group_membership" "admin_membership" {
   user   = aws_iam_user.permanent_admin_user.name
   groups = [aws_iam_group.terraform_admins.name]
+}
+
+# -------------------------------
+# SECRETS Access
+# -------------------------------
+resource "aws_iam_policy" "secrets_read_policy" {
+  name        = "${var.app_name}-ecs-secrets-read-policy"
+  description = "Allows ECS agent to retrieve secrets for the task definition."
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ],
+        Effect   = "Allow",
+        # Ensures the policy is only valid for the specific database secret ARN
+        Resource = aws_secretsmanager_secret.db_credentials.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_exec_secrets_attach" {
+  # Targets the Task Execution Role
+  role       = aws_iam_role.ecs_exec_role.name
+  policy_arn = aws_iam_policy.secrets_read_policy.arn
+}
+
+resource "aws_iam_service_linked_role" "ecs" {
+  aws_service_name = "ecs.amazonaws.com"
+  description      = "Allows Amazon ECS to access your resources."
 }

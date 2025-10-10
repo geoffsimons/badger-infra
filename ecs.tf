@@ -157,3 +157,101 @@ resource "aws_iam_role_policy_attachment" "ecs_task_app_attach" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.ecs_app_policy.arn
 }
+
+# -----------------------------------------------------------------------------
+# CloudWatch Log Group (Prerequisite for Task Definition)
+# -----------------------------------------------------------------------------
+resource "aws_cloudwatch_log_group" "app_log_group" {
+  name              = "/ecs/${var.app_name}-app"
+  retention_in_days = 30
+}
+
+# -----------------------------------------------------------------------------
+# ECS Task Definition (The blueprint for your container)
+# -----------------------------------------------------------------------------
+resource "aws_ecs_task_definition" "app_task" {
+  family                   = "${var.app_name}-task"
+  cpu                      = 1024       # Example: 1 vCPU
+  memory                   = 2048       # Example: 2 GB
+  network_mode             = "awsvpc"   # Required for Fargate
+  requires_compatibilities = ["FARGATE"]
+  execution_role_arn       = aws_iam_role.ecs_exec_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "${var.app_name}-container",
+      image     = "${aws_ecr_repository.app_repo.repository_url}:latest", # Reference ECR URL
+      cpu       = 1024,
+      memory    = 2048,
+      essential = true,
+      portMappings = [
+        {
+          containerPort = 8080, # Spring Boot default port
+          hostPort      = 8080
+        }
+      ],
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.app_log_group.name,
+          "awslogs-region"        = var.region,
+          "awslogs-stream-prefix" = "ecs"
+        }
+      },
+      # The environment block can be EMPTY now, as all sensitive data is in secrets
+      environment = [],
+
+      secrets = [
+        {
+          # Environment Variable name your Spring Boot app expects
+          name      = "SPRING_DATASOURCE_URL",
+          # Reference the ARN, then use the :jsonKey: syntax to pull 'DB_URL' from the JSON
+          valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:DB_URL::"
+        },
+        {
+          name      = "SPRING_DATASOURCE_USERNAME",
+          valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:DB_USERNAME::"
+        },
+        {
+          name      = "SPRING_DATASOURCE_PASSWORD",
+          valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:DB_PASSWORD::"
+        }
+      ]
+    }
+  ])
+}
+
+# -----------------------------------------------------------------------------
+# ECS Service (Keeps the Task Definition running and connects it to the ALB)
+# -----------------------------------------------------------------------------
+resource "aws_ecs_service" "app_service" {
+  name            = "${var.app_name}-service"
+  cluster         = aws_ecs_cluster.app_cluster.id
+  task_definition = aws_ecs_task_definition.app_task.arn
+  desired_count   = 2 # Start with 2 tasks for high availability
+  launch_type     = "FARGATE"
+
+  # Connect the service to the ALB Target Group
+  load_balancer {
+    target_group_arn = aws_lb_target_group.app_tg.arn
+    container_name   = "${var.app_name}-container" # Name from Task Definition
+    container_port   = 8080
+  }
+
+  network_configuration {
+    subnets          = aws_subnet.private.*.id # Fargate tasks must run in private subnets
+    security_groups  = [aws_security_group.backend.id] # The Backend SG
+    assign_public_ip = false # Tasks in private subnets should NOT get public IPs
+  }
+
+  # Prevents Terraform from trying to manage the service's desired count
+  # if you use ECS Service Auto Scaling or manual scaling
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+
+  tags = {
+    Name = "${var.app_name}-service"
+  }
+}

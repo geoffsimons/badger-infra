@@ -4,6 +4,12 @@ variable "app_name" {
   default     = "badger"
 }
 
+variable "environment" {
+  description = "The environment to operate on."
+  type        = string
+  default     = "dev"
+}
+
 variable "region" {
   description = "AWS region for the deployment."
   type        = string
