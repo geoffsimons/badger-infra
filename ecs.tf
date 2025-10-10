@@ -216,7 +216,12 @@ resource "aws_ecs_task_definition" "app_task" {
         {
           name      = "SPRING_DATASOURCE_PASSWORD",
           valueFrom = "${aws_secretsmanager_secret.db_credentials.arn}:DB_PASSWORD::"
-        }
+        },
+        { name: "JWT_SECRET", valueFrom: "${aws_secretsmanager_secret.app_config.arn}:JWT_SECRET::" },
+        { name: "JWT_TTL", valueFrom: "${aws_secretsmanager_secret.app_config.arn}:JWT_TTL::" },
+        { name: "SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID", valueFrom: "${aws_secretsmanager_secret.app_config.arn}:GOOGLE_CLIENT_ID::" },
+        { name: "SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET", valueFrom: "${aws_secretsmanager_secret.app_config.arn}:GOOGLE_CLIENT_SECRET::" },
+        { name: "APP_OAUTH2_REDIRECT_URI_SUCCESS", valueFrom: "${aws_secretsmanager_secret.app_config.arn}:APP_OAUTH2_REDIRECT_URI_SUCCESS::" }
       ]
     }
   ])
