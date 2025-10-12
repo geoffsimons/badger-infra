@@ -65,10 +65,10 @@ variable "jwt_secret" {
 }
 
 variable "jwt_ttl" {
-  description = "Time to Live for JWTs."
-  type        = number
+  description = "Time to Live for JWT in ms."
+  type        = string
   # Default is set to 7 days
-  default     = 604800000
+  default     = "604800000"
 }
 
 variable "google_client_id" {

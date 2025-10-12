@@ -37,6 +37,7 @@ resource "aws_iam_policy" "app_deployment_policy" {
           "iam:PassRole",
           "iam:CreateServiceLinkedRole",
           "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
 
           # Elastic Load Balancing (ALB/Target Group/Listener)
           "elasticloadbalancing:*" ,
