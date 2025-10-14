@@ -14,6 +14,10 @@ terraform init
 export AWS_PROFILE=badger-bootstrap # STILL using the highly-privileged profile
 terraform apply --target aws_iam_group.terraform_admins --target aws_iam_policy.app_deployment_policy -auto-approve
 ```
+If we just need to update the policy:
+```bash
+terraform apply --target aws_iam_policy.app_deployment_policy -auto-approve
+```
 
 4. Apply part 2: Create admin user
 ```bash

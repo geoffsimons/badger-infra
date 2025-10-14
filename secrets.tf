@@ -32,7 +32,5 @@ resource "aws_secretsmanager_secret_version" "app_config_version" {
     GOOGLE_CLIENT_ID               = var.google_client_id,
     GOOGLE_CLIENT_SECRET           = var.google_client_secret,
     APP_OAUTH2_REDIRECT_URI_SUCCESS = var.oauth2_redirect_uri_success
-    # NOTE: You'll need to define variables for all of these values in your variables.tf
-    # and provide them via your .tfvars file for each environment.
   })
 }

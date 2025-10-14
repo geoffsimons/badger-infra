@@ -48,6 +48,7 @@ resource "aws_iam_policy" "app_deployment_policy" {
           "logs:PutRetentionPolicy",
           "logs:DescribeLogGroups",
           "logs:ListTagsForResource",
+          "logs:TagResource",
 
           # Secrets Manager (For creating/managing the secret itself)
           "secretsmanager:CreateSecret",

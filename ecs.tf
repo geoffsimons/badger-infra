@@ -129,36 +129,45 @@ output "ecs_task_role_arn" {
   value       = aws_iam_role.ecs_task_role.arn
 }
 
-resource "aws_iam_policy" "ecs_app_policy" {
-  name        = "${var.app_name}-ecs-app-policy"
-  description = "Minimal policy for the application to run inside the container."
+# TODO: Uncomment these for ECS to use S3
+#    We might also need to setup some other stuff in a s3.tf config.
+# resource "aws_iam_policy" "ecs_app_policy" {
+#   name        = "${var.app_name}-ecs-app-policy"
+#   description = "Permissions for the application code (S3, DynamoDB, etc.)."
+#   policy = jsonencode({
+#     Version = "2012-10-17",
+#     Statement = [
+#       {
+#         Action   = ["s3:GetObject", "s3:PutObject"],
+#         Effect   = "Allow",
+#         Resource = "arn:aws:s3:::${var.app_name}-data/*" # SCOPE TO YOUR BUCKET
+#       }
+#     ]
+#   })
+# }
 
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      # ADD SPECIFIC APPLICATION PERMISSIONS HERE
-      # TODO Add s3 permissions when ready to integrate s3
-      # For now, we have a dummy and safe placeholder
-      { # TODO Remove this when we are ready to make the real policy.
-        Action   = "s3:ListAllMyBuckets",
-        Effect   = "Deny",
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_app_attach" {
-  role       = aws_iam_role.ecs_task_role.name
-  policy_arn = aws_iam_policy.ecs_app_policy.arn
-}
+# resource "aws_iam_role_policy_attachment" "ecs_task_app_attach" {
+#   role       = aws_iam_role.ecs_task_role.name
+#   policy_arn = aws_iam_policy.ecs_app_policy.arn
+# }
 
 # -----------------------------------------------------------------------------
-# CloudWatch Log Group (Prerequisite for Task Definition)
+# CloudWatch Log Groups (Prerequisite for Task Definitions)
 # -----------------------------------------------------------------------------
-resource "aws_cloudwatch_log_group" "app_log_group" {
-  name              = "/ecs/${var.app_name}-app"
+resource "aws_cloudwatch_log_group" "backend_log_group" {
+  name              = "/ecs/${var.app_name}-backend" # Use a distinct name for the backend
   retention_in_days = 30
+  tags = {
+    Name = "${var.app_name}-backend-logs"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "frontend_log_group" {
+  name              = "/ecs/${var.app_name}-frontend" # Use a distinct name for the frontend
+  retention_in_days = 7 # Example: Frontend might need shorter retention
+  tags = {
+    Name = "${var.app_name}-frontend-logs"
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -176,7 +185,7 @@ resource "aws_ecs_task_definition" "app_task" {
   container_definitions = jsonencode([
     {
       name      = "${var.app_name}-container",
-      image     = "${aws_ecr_repository.app_repo.repository_url}:latest", # Reference ECR URL
+      image     = "${aws_ecr_repository.app_repo.repository_url}:badger-backend-20251013205613", # Reference ECR URL
       cpu       = 1024,
       memory    = 2048,
       essential = true,
@@ -189,14 +198,17 @@ resource "aws_ecs_task_definition" "app_task" {
       logConfiguration = {
         logDriver = "awslogs",
         options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.app_log_group.name,
+          "awslogs-group"         = aws_cloudwatch_log_group.backend_log_group.name,
           "awslogs-region"        = var.region,
           "awslogs-stream-prefix" = "ecs"
         }
       },
-      # The environment block can be EMPTY now, as all sensitive data is in secrets
-      environment = [],
-
+      environment = [
+        # Tells Spring Boot to use X-Forwarded-* headers
+        { name = "SERVER_FORWARD_HEADERS_STRATEGY", value = "FRAMEWORK" },
+        # Explicitly tells Tomcat/Jetty to use this header for protocol
+        { name = "SERVER_TOMCAT_REMOTEIP_PROTOCOL_HEADER", value = "x-forwarded-proto" }
+      ],
       secrets = [
         {
           # Environment Variable name your Spring Boot app expects
@@ -225,7 +237,7 @@ resource "aws_ecs_task_definition" "app_task" {
 # -----------------------------------------------------------------------------
 # ECS Service (Keeps the Task Definition running and connects it to the ALB)
 # -----------------------------------------------------------------------------
-resource "aws_ecs_service" "app_service" {
+resource "aws_ecs_service" "backend_service" {
   name            = "${var.app_name}-service"
   cluster         = aws_ecs_cluster.app_cluster.id
   task_definition = aws_ecs_task_definition.app_task.arn
@@ -234,7 +246,7 @@ resource "aws_ecs_service" "app_service" {
 
   # Connect the service to the ALB Target Group
   load_balancer {
-    target_group_arn = aws_lb_target_group.app_tg.arn
+    target_group_arn = aws_lb_target_group.backend_tg.arn
     container_name   = "${var.app_name}-container" # Name from Task Definition
     container_port   = 8080
   }
@@ -253,5 +265,74 @@ resource "aws_ecs_service" "app_service" {
 
   tags = {
     Name = "${var.app_name}-service"
+  }
+}
+
+# -----------------------------------------------------------------------------
+# ECS Task Definition (Frontend)
+# -----------------------------------------------------------------------------
+resource "aws_ecs_task_definition" "frontend_task" {
+  family                   = "${var.app_name}-frontend-task"
+  cpu                      = 512        # Smaller CPU/Memory for a static frontend
+  memory                   = 1024
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  execution_role_arn       = aws_iam_role.ecs_exec_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "${var.app_name}-frontend-container",
+      image     = "${aws_ecr_repository.app_repo.repository_url}:badger-frontend-20251011191932",
+      cpu       = 512,
+      memory    = 1024,
+      essential = true,
+      portMappings = [
+        {
+          containerPort = 80, # Nginx/Frontend container default port
+          hostPort      = 80
+        }
+      ],
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.frontend_log_group.name,
+          "awslogs-region"        = var.region,
+          "awslogs-stream-prefix" = "ecs"
+        }
+      },
+      environment = [],
+      # React apps often need environment variables for API URL, but no secrets here
+      secrets     = []
+    }
+  ])
+}
+
+# -----------------------------------------------------------------------------
+# ECS Service (Frontend - Connects to the new Target Group)
+# -----------------------------------------------------------------------------
+resource "aws_ecs_service" "frontend_service" {
+  name            = "${var.app_name}-frontend-service"
+  cluster         = aws_ecs_cluster.app_cluster.id
+  task_definition = aws_ecs_task_definition.frontend_task.arn
+  desired_count   = 2
+  launch_type     = "FARGATE"
+
+  # Connect the service to the NEW Frontend Target Group (app_frontend_tg below)
+  load_balancer {
+    target_group_arn = aws_lb_target_group.frontend_tg.arn
+    container_name   = "${var.app_name}-frontend-container"
+    container_port   = 80
+  }
+
+  network_configuration {
+    subnets          = aws_subnet.private.*.id
+    security_groups  = [aws_security_group.frontend.id]
+    assign_public_ip = false
+  }
+
+  # Prevents Terraform from trying to manage the service's desired count
+  lifecycle {
+    ignore_changes = [desired_count]
   }
 }
