@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# 1A. ALB Target Group for the Frontend (The destination for app.geoffsimons.com)
+# ALB Target Group for the Frontend
 # -----------------------------------------------------------------------------
 resource "aws_lb_target_group" "frontend_tg" {
   name        = "${var.app_name}-frontend-tg"
@@ -21,7 +21,7 @@ resource "aws_lb_target_group" "frontend_tg" {
 }
 
 # -----------------------------------------------------------------------------
-# 1B. Target group for the backend (api.geoffsimons.com)
+# Target group for the backend
 # -----------------------------------------------------------------------------
 resource "aws_lb_target_group" "backend_tg" {
   name        = "${var.app_name}-backend-tg"
@@ -51,7 +51,7 @@ resource "aws_lb_target_group" "backend_tg" {
 }
 
 # -----------------------------------------------------------------------------
-# 2. Application Load Balancer (The traffic entry point)
+# Application Load Balancer (The traffic entry point)
 # -----------------------------------------------------------------------------
 resource "aws_lb" "app_alb" {
   name               = "${var.app_name}-alb"
@@ -66,7 +66,7 @@ resource "aws_lb" "app_alb" {
 }
 
 # -----------------------------------------------------------------------------
-# 3. ALB Listener (Routes traffic from 443 with Host-Based Routing)
+# ALB Listener (Routes traffic from 443 with Host-Based Routing)
 # -----------------------------------------------------------------------------
 resource "aws_lb_listener" "app_listener" {
   load_balancer_arn = aws_lb.app_alb.arn
@@ -75,7 +75,7 @@ resource "aws_lb_listener" "app_listener" {
   certificate_arn   = aws_acm_certificate.app_cert.arn
 
   # Set the default action to forward traffic to the Frontend.
-  # All unmatched traffic (like app.geoffsimons.com) will hit this rule.
+  # All unmatched traffic will hit this rule.
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.frontend_tg.arn
@@ -83,7 +83,7 @@ resource "aws_lb_listener" "app_listener" {
 }
 
 # -----------------------------------------------------------------------------
-# 4. Listener Rule for the Backend (api.geoffsimons.com)
+# Listener Rule for the Backend
 # -----------------------------------------------------------------------------
 resource "aws_lb_listener_rule" "backend_api_rule" {
   listener_arn = aws_lb_listener.app_listener.arn
@@ -96,7 +96,7 @@ resource "aws_lb_listener_rule" "backend_api_rule" {
 
   condition {
     host_header {
-      values = ["api.geoffsimons.com"]
+      values = ["api.${var.app_domain}"]
     }
   }
 }

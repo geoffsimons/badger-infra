@@ -4,6 +4,15 @@ variable "app_name" {
   default     = "badger"
 }
 
+# -----------------------------------------------------------
+# Top Level Domain for the stack, like example.com
+# Can be set as an environment var: TF_VAR_app_domain
+# -----------------------------------------------------------
+variable "app_domain" {
+  description = "The top level domain name for the app."
+  type        = string
+}
+
 variable "environment" {
   description = "The environment to operate on."
   type        = string
