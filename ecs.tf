@@ -185,7 +185,7 @@ resource "aws_ecs_task_definition" "app_task" {
   container_definitions = jsonencode([
     {
       name      = "${var.app_name}-container",
-      image     = "${aws_ecr_repository.app_repo.repository_url}:badger-backend-20251014102757", # Reference ECR URL
+      image     = "${aws_ecr_repository.app_repo.repository_url}:badger-backend-20251019153227", # Reference ECR URL
       cpu       = 1024,
       memory    = 2048,
       essential = true,
